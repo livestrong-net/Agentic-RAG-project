@@ -28,7 +28,7 @@ except Exception as e:
 
         if [ -n "$NEON_IPV4" ]; then
             echo "Airflow DB: forcing IPv4 $NEON_HOST -> $NEON_IPV4"
-            export AIRFLOW__DATABASE__SQL_ALCHEMY_CONN="${AIRFLOW__DATABASE__SQL_ALCHEMY_CONN}&hostaddr=${NEON_IPV4}"
+            export AIRFLOW__DATABASE__SQL_ALCHEMY_CONN="${AIRFLOW__DATABASE__SQL_ALCHEMY_CONN}&hostaddr=${NEON_IPV4}&keepalives=1&keepalives_idle=60&keepalives_interval=10&keepalives_count=5"
         fi
     fi
 fi

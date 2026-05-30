@@ -80,48 +80,18 @@ async def lifespan(app: FastAPI):
         else:
             logger.warning("OpenSearch connection failed - search features will be limited")
 
-        # Initialize other services
-        app.state.arxiv_client = make_arxiv_client()
-        app.state.pdf_parser = make_pdf_parser_service()
-        app.state.embeddings_service = make_embeddings_service()
-        if settings.provider == "bedrock":
-            app.state.llm_client = make_bedrock_llm_client(settings)
-            logger.info(f"LLM provider: AWS Bedrock (model={settings.bedrock.model_id})")
-        else:
-            app.state.llm_client = make_openai_llm_client()
-            logger.info(f"LLM provider: OpenAI (model={settings.openai_model})")
-
-        app.state.guardrails_service = make_bedrock_guardrails_service(settings)
-        guardrail_status = f"guardrail_id={settings.bedrock.guardrail_id}" if settings.bedrock.guardrail_id else "disabled (no guardrail_id)"
-        logger.info(f"Bedrock Guardrails: {guardrail_status}")
-
-        app.state.langfuse_tracer = make_langfuse_tracer()
+    # Initialize other services (kept for future endpoints and notebook demos)
+    app.state.arxiv_client = make_arxiv_client()
+    app.state.pdf_parser = make_pdf_parser_service()
+    app.state.embeddings_service = make_embeddings_service()
+    app.state.llm_client = make_openai_llm_client()
+    app.state.langfuse_tracer = make_langfuse_tracer()
+    try:
         app.state.cache_client = make_cache_client(settings)
-        logger.info("Services initialized: arXiv API client, PDF parser, OpenSearch, Embeddings, LLM, Guardrails, Langfuse, Cache")
-
-        # Create shared agentic RAG service (used by both MCP and Telegram)
-        agentic_rag_service = make_agentic_rag_service(
-            opensearch_client=app.state.opensearch_client,
-            llm_client=app.state.llm_client,
-            embeddings_client=app.state.embeddings_service,
-            langfuse_tracer=app.state.langfuse_tracer,
-            guardrails_service=app.state.guardrails_service,
-        )
-        app.state.agentic_rag_service = agentic_rag_service
-
-        # Wire MCP context so tools can reach all services
-        if settings.mcp.enabled:
-            set_mcp_context(
-                MCPContext(
-                    opensearch_client=app.state.opensearch_client,
-                    embeddings_client=app.state.embeddings_service,
-                    llm_client=app.state.llm_client,
-                    langfuse_tracer=app.state.langfuse_tracer,
-                    agentic_rag_service=agentic_rag_service,
-                    database=app.state.database,
-                )
-            )
-            logger.info(f"MCP server context ready (mounted at {settings.mcp.path})")
+    except Exception as e:
+        logger.warning(f"Cache client unavailable, continuing without cache: {e}")
+        app.state.cache_client = None
+    logger.info("Services initialized: arXiv API client, PDF parser, OpenSearch, Embeddings, OpenAI LLM, Langfuse, Cache")
 
         # Initialize Telegram bot (Phase 7)
         # Only one worker process may run the polling bot; others skip.
